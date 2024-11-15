@@ -1,0 +1,6 @@
+model_checkpoint_path: "n1.model-501"
+all_model_checkpoint_paths: "n1.model-440"
+all_model_checkpoint_paths: "n1.model-460"
+all_model_checkpoint_paths: "n1.model-480"
+all_model_checkpoint_paths: "n1.model-500"
+all_model_checkpoint_paths: "n1.model-501"

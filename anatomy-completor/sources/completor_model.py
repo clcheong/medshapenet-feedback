@@ -9,6 +9,9 @@ import argparse
 from scipy.ndimage import zoom
 tf.disable_v2_behavior()
 
+from tensorflow.python.client import device_lib
+print(device_lib.list_local_devices())
+
 
 class auto_encoder(object):
     def __init__(self, sess):
@@ -23,15 +26,15 @@ class auto_encoder(object):
         self.epoch          = 500
         self.model_name     = 'n1.model'
         self.save_intval    = 20
+        self.test_file_name = "s1397"
         self.build_model()
-        self.chkpoint_dir   = "./ckpt"
-        self.train_data_dir = "./real_train/incomplete/"
-        self.train_label_dir = "./real_train/complete"
-        self.test_data_dir = "./real_test/incomplete"
+        self.chkpoint_dir   = "../ckpt"
+        self.train_data_dir = "../completor_dataset/dataset/train/incomplete/"
+        self.train_label_dir = "../completor_dataset/dataset/train/complete"
+        self.test_data_dir = "../completor_dataset/dataset/test/incomplete/" + self.test_file_name
 
-        self.test_label_dir="./Dtest4/dataset/0_ground_truth/lung/"
-        self.save_output_dir = "./output_multiclass/"
-        self.save_residual_dir = "./output_multiclass/residual/"
+        self.save_output_dir = "../output_multiclass/" + self.test_file_name + "/"
+        self.save_residual_dir = "../output_multiclass/residual/" + self.test_file_name + "/"
 
 
     def dice_loss_fun(self, pred, input_gt):
@@ -139,7 +142,7 @@ class auto_encoder(object):
                 labelNpy_resized=np.expand_dims(np.expand_dims(labelNpy_resized,axis=0),axis=4) 
                 name=train_label_list[j][-len('_full.nii.gz')-len('s0556'):-len('_full.nii.gz')]
                 for k in range(10):
-                    data_dir=self.train_data_dir+str(name)+'./'+str(name)+'_%d'%k+'.nii.gz'
+                    data_dir=self.train_data_dir+str(name)+'/'+str(name)+'_%d'%k+'.nii.gz'
                     trainImg=sitk.ReadImage(data_dir)
                     trainNpy=sitk.GetArrayFromImage(trainImg)
                     trainNpy_resized=zoom(trainNpy,(128/trainNpy.shape[0],128/trainNpy.shape[1],128/trainNpy.shape[2]),order=0, mode='constant')
@@ -165,6 +168,8 @@ class auto_encoder(object):
 
         test_list=glob('{}/*.nii.gz'.format(self.test_data_dir))
 
+        print("test_list size = " + str(len(test_list)))
+
         k=1
         for i in range(len(test_list)):
 
@@ -172,7 +177,7 @@ class auto_encoder(object):
             print(test_list[i])                    
             test_img=sitk.ReadImage(test_list[i])
             test_input = sitk.GetArrayFromImage(test_img)
-            test_input_resized_ = zoom(test_input,(256/test_input.shape[0],256/test_input.shape[1],128/test_input.shape[2]),order=0, mode='constant')
+            test_input_resized_ = zoom(test_input,(128/test_input.shape[0],128/test_input.shape[1],128/test_input.shape[2]),order=0, mode='constant')
             test_input_resized_[test_input_resized_>12]=0
             test_input_resized_[test_input_resized_<0]=0
             print('test_input_resized_',np.unique(test_input_resized_))
@@ -186,13 +191,13 @@ class auto_encoder(object):
 
 
             ## output
-            filename=self.save_output_dir+test_list[i][-7-len('s0332_0'):-7]+'.nii.gz'
+            filename=self.save_output_dir+test_list[i][-7-len(self.test_file_name + '_0'):-7]+'.nii.gz'
             resize2original=1
 
             if resize2original:
                 print('resizing predictions...')
 
-                test_output=zoom(test_output[0],(test_input.shape[0]/256,test_input.shape[1]/256,test_input.shape[2]/128),order=0, mode='constant')
+                test_output=zoom(test_output[0],(test_input.shape[0]/128,test_input.shape[1]/128,test_input.shape[2]/128),order=0, mode='constant')
                 print(test_output.shape)
 
                 test_output[test_output>12]=0
@@ -209,9 +214,9 @@ class auto_encoder(object):
                 input_img = nibabel.load(test_list[i])
 
                 voxel_size=input_img.header.get_zooms()
-                voxel_size_new=[voxel_size[0]*(test_input.shape[0]/256),voxel_size[1]*(test_input.shape[1]/256),voxel_size[2]*(test_input.shape[2]/128)]
+                voxel_size_new=[voxel_size[0]*(test_input.shape[0]/128),voxel_size[1]*(test_input.shape[1]/128),voxel_size[2]*(test_input.shape[2]/128)]
                 resampled_img = nibabel.processing.resample_to_output(input_img, voxel_size_new)
-                filename_img=self.save_output_dir+test_list[i][-7-len('s0332_0'):-7]+'_org'+'.nii.gz'
+                filename_img=self.save_output_dir+test_list[i][-7-len(self.test_file_name + '_0'):-7]+'_org'+'.nii.gz'
                 nibabel.save(resampled_img, filename_img)
 
 
@@ -256,7 +261,9 @@ if __name__ == "__main__":
     parser.add_argument("--phase")
     args = parser.parse_args()
 
-    sess1 = tf.compat.v1.Session()
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    sess1 = tf.Session(config=config)
     with sess1.as_default():
         with sess1.graph.as_default():
             model = auto_encoder(sess1)
